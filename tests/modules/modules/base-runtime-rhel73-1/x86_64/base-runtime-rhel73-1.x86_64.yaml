@@ -1,0 +1,67 @@
+document: modulemd
+version: 1
+data:
+  name: base-runtime
+  stream: rhel73
+  version: 1
+  summary: Fake module
+  description: Fake module
+  license:
+    module:
+    - LGPLv2
+  profiles:
+    default:
+      rpms:
+      - bash
+      - glibc
+      - kernel
+      - systemd
+    minimal:
+      rpms:
+      - glibc
+  components:
+    rpms:
+      kernel-headers:
+        rationale: ''
+      kernel:
+        rationale: ''
+      systemd:
+        rationale: ''
+      glibc-debuginfo-common:
+        rationale: ''
+      kernel-doc:
+        rationale: ''
+      glibc:
+        rationale: ''
+      basesystem:
+        rationale: ''
+      glibc-debuginfo:
+        rationale: ''
+      bash-doc:
+        rationale: ''
+      bash:
+        rationale: ''
+      bash-debuginfo:
+        rationale: ''
+      filesystem:
+        rationale: ''
+      dummy-nscd:
+        rationale: ''
+      glibc-common:
+        rationale: ''
+  artifacts:
+    rpms:
+    - basesystem-0:10.0-7.noarch
+    - bash-0:4.2.46-21.x86_64
+    - bash-debuginfo-0:4.2.46-21.x86_64
+    - bash-doc-0:4.2.46-21.noarch
+    - dummy-nscd-0:2.17-157.x86_64
+    - filesystem-0:3.2-21.x86_64
+    - glibc-0:2.17-157.x86_64
+    - glibc-common-0:2.17-157.x86_64
+    - glibc-debuginfo-0:2.17-157.x86_64
+    - glibc-debuginfo-common-0:2.17-157.x86_64
+    - kernel-0:3.10.0-514.x86_64
+    - kernel-doc-0:3.10.0-514.noarch
+    - kernel-headers-0:3.10.0-514.x86_64
+    - systemd-0:219-30.x86_64
