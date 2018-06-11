@@ -42,6 +42,8 @@ import os
 import os.path
 import sys
 
+import dnf.dnssec.dnsseckeyverification as dnssec
+
 logger = logging.getLogger("dnf")
 
 
@@ -87,6 +89,7 @@ def _main(base, args, cli_class, option_parser):
 
     # our core object for the cli
     base._logging._presetup()
+    dnssec.RpmImportedKeys.check_imported_keys_validity(logger)
     cli = cli_class(base)
 
     # do our cli parsing and config file setup

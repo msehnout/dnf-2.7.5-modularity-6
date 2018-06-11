@@ -42,6 +42,7 @@ import dnf.comps
 import dnf.conf
 import dnf.conf.read
 import dnf.crypto
+import dnf.dnssec.dnsseckeyverification as dnssec
 import dnf.drpm
 import dnf.exceptions
 import dnf.goal
@@ -2347,6 +2348,12 @@ class Base(object):
                     logger.info(msg, keyurl, info.short_id)
                     continue
 
+                # DNS Extension: create a key object, pass it to the verification class
+                # and print its result as an advice to the user.
+                dns_input_key = dnssec.KeyInfo.from_rpm_key_object(info.userid, info.raw_key)
+                dns_result = dnssec.DNSSECKeyVerification.verify(dns_input_key)
+                logger.info(dnssec.nice_user_msg(dns_input_key, dns_result))
+
                 # Try installing/updating GPG key
                 info.url = keyurl
                 dnf.crypto.log_key_import(info)
@@ -2354,7 +2361,17 @@ class Base(object):
                 if self.conf.assumeno:
                     rc = False
                 elif self.conf.assumeyes:
-                    rc = True
+                    # DNS Extension: We assume, that the key is trusted in case it is valid,
+                    # its existence is explicitly denied or in case the domain is not signed
+                    # and therefore there is no way to know for sure (this is mainly for
+                    # backward compatibility)
+                    if dns_result == dnssec.Validity.VALID or \
+                            dns_result == dnssec.Validity.PROVEN_NONEXISTENCE:
+                        rc = True
+                        logger.info(dnssec.any_msg("The key has been approved."))
+                    else:
+                        rc = False
+                        logger.info(dnssec.any_msg("The key has been rejected."))
 
                 # grab the .sig/.asc for the keyurl, if it exists if it
                 # does check the signature on the key if it is signed by
