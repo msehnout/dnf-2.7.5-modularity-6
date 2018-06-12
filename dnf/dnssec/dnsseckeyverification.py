@@ -164,6 +164,7 @@ class DNSSECKeyVerification:
 def nice_user_msg(ki, v):
     """
     type: (KeyInfo, Validity) -> str
+    Inform the user about key validity in a human readable way.
     """
     prefix = "DNSSEC extension: Key for user " + ki.email + " "
     if v == Validity.VALID:
@@ -173,11 +174,22 @@ def nice_user_msg(ki, v):
 
 
 def any_msg(m):
-    # type: (str) -> str
+    """
+    type: (str) -> str
+    Label any given message with DNSSEC extension tag
+    """
     return "DNSSEC extension: " + m
 
 
 class RpmImportedKeys:
+    """
+    Wrapper around keys, that are imported in the RPM database.
+
+    The keys are stored in packages with name gpg-pubkey, where the version and
+    release is different for each of them. The key content itself is stored as
+    an ASCII armored string in the package description, so it needs to be parsed
+    before it can be used.
+    """
     def __init__(self):
         self.pkg_names = RpmImportedKeys.__load_package_list()
         self.keys = RpmImportedKeys.__pkgs_list_into_keys(self.pkg_names)
