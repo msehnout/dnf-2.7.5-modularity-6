@@ -28,5 +28,7 @@ class DnssecError(dnf.exceptions.Error):
     pass
 
 
-from dnf.dnssec.dnsseckeyverification import any_msg, DNSSECKeyVerification, KeyInfo, email2location, nice_user_msg, \
-    RpmImportedKeys, Validity
+# Classes
+from dnf.dnssec.dnsseckeyverification import DNSSECKeyVerification, KeyInfo, RpmImportedKeys, Validity
+# Functions
+from dnf.dnssec.dnsseckeyverification import any_msg, email2location, nice_user_msg

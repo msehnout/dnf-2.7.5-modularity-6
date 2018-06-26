@@ -1,19 +1,26 @@
-import unbound
-import hashlib
 import base64
+import hashlib
+import logging
 import re
+import unbound
 import subprocess
 
 from enum import Enum
 from dnf.dnssec import DnssecError
+from dnf.i18n import _
+import dnf.rpm.transaction
+
+
+logger = logging.getLogger("dnf")
 
 # TODO: make this feature optional
 
 RR_TYPE_OPENPGPKEY = 61
 
+
 def email2location(email_address, tag="_openpgpkey"):
+    # type: (str, str) -> str
     """
-    type: (str, str) -> str
     Implements RFC 7929, section 3
     https://tools.ietf.org/html/rfc7929#section-3
     :param email_address:
@@ -66,8 +73,8 @@ class KeyInfo:
 
     @staticmethod
     def from_rpm_key_object(userid, raw_key):
+        # type: (str, bytes) -> KeyInfo
         """
-        type: (str, bytes) -> KeyInfo
         Since dnf uses different format of the key than the one used in DNS RR, I need to convert the
         former one into the new one.
         """
@@ -102,8 +109,8 @@ class DNSSECKeyVerification:
 
     @staticmethod
     def _cache_hit(key_union, input_key_string):
+        # type: (Union[str, NoKey], str) -> Validity
         """
-        type: (Union[str, NoKey], str) -> Validity
         Compare the key in case it was found in the cache.
         """
         if key_union == input_key_string:
@@ -115,13 +122,17 @@ class DNSSECKeyVerification:
 
     @staticmethod
     def _cache_miss(input_key):
+        # type: (KeyInfo) -> Validity
         """
-        type: (KeyInfo) -> Validity
         In case the key was not found in the cache, create an Unbound context and contact the DNS system
         """
         ctx = unbound.ub_ctx()
-        # TODO: is this the right place to put this file?
-        ctx.config("/etc/dnf/libunbound.conf")
+        if ctx.set_option("verbosity:", "0") != 0:
+            logger.debug("Unbound context: Failed to set verbosity")
+
+        if ctx.set_option("qname-minimisation:", "yes") != 0:
+            logger.debug("Unbound context: Failed to set qname minimisation")
+
         status, result = ctx.resolve(email2location(input_key.email),
                                      RR_TYPE_OPENPGPKEY, unbound.RR_CLASS_IN)
         if status != 0:
@@ -145,8 +156,8 @@ class DNSSECKeyVerification:
 
     @staticmethod
     def verify(input_key):
+        # type: (KeyInfo) -> Validity
         """
-        type: (KeyInfo) -> Validity
         Public API. Use this method to verify a KeyInfo object.
         """
         key_union = DNSSECKeyVerification._cache.get(input_key.email)
@@ -162,23 +173,23 @@ class DNSSECKeyVerification:
 
 
 def nice_user_msg(ki, v):
+    # type: (KeyInfo, Validity) -> str
     """
-    type: (KeyInfo, Validity) -> str
     Inform the user about key validity in a human readable way.
     """
-    prefix = "DNSSEC extension: Key for user " + ki.email + " "
+    prefix = _("DNSSEC extension: Key for user ") + ki.email + " "
     if v == Validity.VALID:
-        return prefix + "is valid."
+        return prefix + _("is valid.")
     else:
-        return prefix + "has unknown status."
+        return prefix + _("has unknown status.")
 
 
 def any_msg(m):
+    # type: (str) -> str
     """
-    type: (str) -> str
     Label any given message with DNSSEC extension tag
     """
-    return "DNSSEC extension: " + m
+    return _("DNSSEC extension: ") + m
 
 
 class RpmImportedKeys:
@@ -191,12 +202,14 @@ class RpmImportedKeys:
     before it can be used.
     """
     def __init__(self):
+        # TODO: remove method once query db is tested
         self.pkg_names = RpmImportedKeys.__load_package_list()
         self.keys = RpmImportedKeys.__pkgs_list_into_keys(self.pkg_names)
 
     @staticmethod
     def __load_package_list():
         # type: () -> List[str]
+        # TODO: remove method once query db is tested
         p1 = subprocess.Popen(["rpm", "-q", "gpg-pubkey"], stdout=subprocess.PIPE)
         out = p1.communicate()[0]
         keys = out.decode().split('\n')
@@ -205,6 +218,7 @@ class RpmImportedKeys:
     @staticmethod
     def __pkg_name_into_key(pkg):
         # type: (str) -> KeyInfo
+        # TODO: remove method once query db is tested
         # Load output of the rpm -qi call
         p1 = subprocess.Popen(["rpm", "-qi", pkg], stdout=subprocess.PIPE)
         info = p1.communicate()[0].decode().split('\n')
@@ -221,15 +235,33 @@ class RpmImportedKeys:
         return KeyInfo(email, pgp_key_str.encode('ascii'))
 
     @staticmethod
+    def _query_db_for_gpg_keys():
+        # type: () -> List[KeyInfo]
+        # TODO: base.conf.installroot ?? ----------\
+        transaction_set = dnf.rpm.transaction.TransactionWrapper()
+        packages = transaction_set.dbMatch("name", "gpg-pubkey")
+        return_list = []
+        for pkg in packages:
+            packager = pkg['packager']
+            email = re.search('<(.*@.*)>', packager).group(1)
+            description = pkg['description']
+            key_lines = description.decode('ascii').split('\n')[3:-3]
+            key_str = ''.join(key_lines)
+            return_list += KeyInfo(email, key_str.encode('ascii'))
+
+        return return_list
+
+    @staticmethod
     def __pkgs_list_into_keys(packages):
         # type: (List[str]) -> List[KeyInfo]
         return [RpmImportedKeys.__pkg_name_into_key(x) for x in packages]
 
     @staticmethod
-    def check_imported_keys_validity(logger):
-        keys = RpmImportedKeys()
-        logger.info(any_msg("Testing already imported keys for their validity."))
+    def check_imported_keys_validity():
+        keys = RpmImportedKeys._query_db_for_gpg_keys()
+        logger.info(any_msg(_("Testing already imported keys for their validity.")))
         for key in keys.keys:
             result = DNSSECKeyVerification.verify(key)
+            # TODO: remove revoked keys automatically
             logger.info(any_msg("Key associated with identity " + key.email +
                         " was tested with result: " + str(result)))

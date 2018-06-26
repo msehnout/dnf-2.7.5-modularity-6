@@ -42,7 +42,7 @@ import dnf.comps
 import dnf.conf
 import dnf.conf.read
 import dnf.crypto
-import dnf.dnssec.dnsseckeyverification as dnssec
+import dnf.dnssec as dnssec
 import dnf.drpm
 import dnf.exceptions
 import dnf.goal
@@ -2365,13 +2365,12 @@ class Base(object):
                     # its existence is explicitly denied or in case the domain is not signed
                     # and therefore there is no way to know for sure (this is mainly for
                     # backward compatibility)
-                    if dns_result == dnssec.Validity.VALID or \
-                            dns_result == dnssec.Validity.PROVEN_NONEXISTENCE:
+                    if dns_result in (dnssec.Validity.VALID, dnssec.Validity.PROVEN_NONEXISTENCE):
                         rc = True
-                        logger.info(dnssec.any_msg("The key has been approved."))
+                        logger.info(dnssec.any_msg(_("The key has been approved.")))
                     else:
                         rc = False
-                        logger.info(dnssec.any_msg("The key has been rejected."))
+                        logger.info(dnssec.any_msg(_("The key has been rejected.")))
 
                 # grab the .sig/.asc for the keyurl, if it exists if it
                 # does check the signature on the key if it is signed by

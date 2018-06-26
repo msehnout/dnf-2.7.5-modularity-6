@@ -89,7 +89,7 @@ def _main(base, args, cli_class, option_parser):
 
     # our core object for the cli
     base._logging._presetup()
-    dnssec.RpmImportedKeys.check_imported_keys_validity(logger)
+    dnssec.RpmImportedKeys.check_imported_keys_validity()
     cli = cli_class(base)
 
     # do our cli parsing and config file setup
