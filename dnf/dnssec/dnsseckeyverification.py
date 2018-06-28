@@ -3,7 +3,6 @@ import hashlib
 import logging
 import re
 import unbound
-import subprocess
 
 from enum import Enum
 from dnf.dnssec import DnssecError
@@ -144,7 +143,7 @@ class DNSSECKeyVerification:
         if result.nxdomain:
             return Validity.PROVEN_NONEXISTENCE
         if not result.havedata:
-            # TODO: what kind of result is this???
+            # TODO: This is weird result, but there is no way to perform validation, so just return an error
             return Validity.ERROR
         else:
             data = result.data.as_raw_data()[0]
@@ -201,43 +200,10 @@ class RpmImportedKeys:
     an ASCII armored string in the package description, so it needs to be parsed
     before it can be used.
     """
-    def __init__(self):
-        # TODO: remove method once query db is tested
-        self.pkg_names = RpmImportedKeys.__load_package_list()
-        self.keys = RpmImportedKeys.__pkgs_list_into_keys(self.pkg_names)
-
-    @staticmethod
-    def __load_package_list():
-        # type: () -> List[str]
-        # TODO: remove method once query db is tested
-        p1 = subprocess.Popen(["rpm", "-q", "gpg-pubkey"], stdout=subprocess.PIPE)
-        out = p1.communicate()[0]
-        keys = out.decode().split('\n')
-        return [x for x in keys if x.startswith('gpg-pubkey')]
-
-    @staticmethod
-    def __pkg_name_into_key(pkg):
-        # type: (str) -> KeyInfo
-        # TODO: remove method once query db is tested
-        # Load output of the rpm -qi call
-        p1 = subprocess.Popen(["rpm", "-qi", pkg], stdout=subprocess.PIPE)
-        info = p1.communicate()[0].decode().split('\n')
-        # Parse packager email
-        packager = [x for x in info if x.startswith('Packager')][0]
-        email = re.search('<(.*@.*)>', packager).group(1)
-        # Parse gpg key
-        pgp_start = [n for n, l in enumerate(info)
-                     if l.startswith('-----BEGIN PGP PUBLIC KEY BLOCK-----')][0]
-        pgp_stop = [n for n, l in enumerate(info)
-                    if l.startswith('-----END PGP PUBLIC KEY BLOCK-----')][0]
-        pgp_key_lines = list(info[pgp_start + 2:pgp_stop - 1])
-        pgp_key_str = ''.join(pgp_key_lines)
-        return KeyInfo(email, pgp_key_str.encode('ascii'))
-
     @staticmethod
     def _query_db_for_gpg_keys():
         # type: () -> List[KeyInfo]
-        # TODO: base.conf.installroot ?? ----------\
+        # TODO: base.conf.installroot ?? -----------------------\
         transaction_set = dnf.rpm.transaction.TransactionWrapper()
         packages = transaction_set.dbMatch("name", "gpg-pubkey")
         return_list = []
@@ -250,11 +216,6 @@ class RpmImportedKeys:
             return_list += KeyInfo(email, key_str.encode('ascii'))
 
         return return_list
-
-    @staticmethod
-    def __pkgs_list_into_keys(packages):
-        # type: (List[str]) -> List[KeyInfo]
-        return [RpmImportedKeys.__pkg_name_into_key(x) for x in packages]
 
     @staticmethod
     def check_imported_keys_validity():
