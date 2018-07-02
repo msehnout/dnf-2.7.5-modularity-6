@@ -132,6 +132,12 @@ class DNSSECKeyVerification:
         if ctx.set_option("qname-minimisation:", "yes") != 0:
             logger.debug("Unbound context: Failed to set qname minimisation")
 
+        if ctx.resolvconf() != 0:
+            logger.debug("Unbound context: Failed to read resolv.conf")
+
+        if ctx.add_ta_file("/var/lib/unbound/root.key") != 0:
+            logger.debug("Unbound context: Failed to add trust anchor file")
+
         status, result = ctx.resolve(email2location(input_key.email),
                                      RR_TYPE_OPENPGPKEY, unbound.RR_CLASS_IN)
         if status != 0:
@@ -208,12 +214,12 @@ class RpmImportedKeys:
         packages = transaction_set.dbMatch("name", "gpg-pubkey")
         return_list = []
         for pkg in packages:
-            packager = pkg['packager']
+            packager = pkg['packager'].decode('ascii')
             email = re.search('<(.*@.*)>', packager).group(1)
             description = pkg['description']
             key_lines = description.decode('ascii').split('\n')[3:-3]
             key_str = ''.join(key_lines)
-            return_list += KeyInfo(email, key_str.encode('ascii'))
+            return_list += [KeyInfo(email, key_str.encode('ascii'))]
 
         return return_list
 
@@ -221,7 +227,7 @@ class RpmImportedKeys:
     def check_imported_keys_validity():
         keys = RpmImportedKeys._query_db_for_gpg_keys()
         logger.info(any_msg(_("Testing already imported keys for their validity.")))
-        for key in keys.keys:
+        for key in keys:
             result = DNSSECKeyVerification.verify(key)
             # TODO: remove revoked keys automatically
             logger.info(any_msg("Key associated with identity " + key.email +
